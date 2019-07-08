@@ -12,6 +12,7 @@ const {
     GraphQLInputObjectType
 } = graphql;
 
+let links = [];
 //Schema
 const SubStoryType = new GraphQLObjectType({
     name: "SubStory",
@@ -60,6 +61,13 @@ const YouTubeType = new GraphQLObjectType({
     })
 })
 
+const YouTubeType2 = new GraphQLObjectType({
+    name : "haa",
+    fields: ({
+        url : {type : GraphQLString}
+    })
+})
+
 
 
 
@@ -99,17 +107,18 @@ const RootQuery = new GraphQLObjectType({
         },
 
         YouTubeFeed: {
-            type : YouTubeType,
+            type : YouTubeType2,
             resolve(parent,args,context,info){
-               return fetch('https://www.googleapis.com/youtube/v3/search?part=id&maxResults=5&q=lfc&fields=items(id%2FvideoId)&key=AIzaSyAkxQ0Rx7JjjfM7XiMnLViJHl9HFEqXUf8&q=nodejs').then(res => res.json())
-                // .then(json => {
-                //     let videoId = json.items[0].id.videoId;
-                //     console.log(videoId);
-                //     let link = "https://www.youtube.com/embed/" + videoId;
-                //     console.log(link);
-                //     // console.log(json.items[0].id)
-                //     return videoId
-                // });
+               return fetch('https://www.googleapis.com/youtube/v3/search?part=id&maxResults=5&q=lfc&fields=items(id%2FvideoId)&key={API_KEY}&q=nodejs').then(res => res.json())
+                .then(json => {
+                    let videoId = json.items[0].id.videoId;
+                    console.log(videoId);
+                    let link = "https://www.youtube.com/embed/" + videoId;
+                    console.log(link);
+                    links.push(link);
+                    console.log(links[0])
+                    return links;
+                });
               
             }
         }
