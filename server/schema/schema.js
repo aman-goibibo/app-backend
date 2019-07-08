@@ -1,5 +1,6 @@
 const graphql = require('graphql');
 const Story  = require('../models/story');
+const fetch = require('node-fetch')
 
 const {
     GraphQLObjectType,
@@ -38,6 +39,29 @@ const StoryType = new GraphQLObjectType({
     }
 });
 
+const id = new GraphQLObjectType({
+    name : "id",
+    fields: ({
+        videoId : {type : GraphQLString}
+    })
+})
+
+const ItemsType = new GraphQLObjectType({
+    name : "Items",
+    fields : ({
+        id : { type: (id)}
+    })
+})
+
+const YouTubeType = new GraphQLObjectType({
+    name : "YouTube",
+    fields: ({
+        items: {type: GraphQLList(ItemsType)}
+    })
+})
+
+
+
 
 // Resolvers
 const RootQuery = new GraphQLObjectType({
@@ -73,6 +97,22 @@ const RootQuery = new GraphQLObjectType({
                  return query
             }
         },
+
+        YouTubeFeed: {
+            type : YouTubeType,
+            resolve(parent,args,context,info){
+               return fetch('https://www.googleapis.com/youtube/v3/search?part=id&maxResults=5&q=lfc&fields=items(id%2FvideoId)&key=AIzaSyAkxQ0Rx7JjjfM7XiMnLViJHl9HFEqXUf8&q=nodejs').then(res => res.json())
+                // .then(json => {
+                //     let videoId = json.items[0].id.videoId;
+                //     console.log(videoId);
+                //     let link = "https://www.youtube.com/embed/" + videoId;
+                //     console.log(link);
+                //     // console.log(json.items[0].id)
+                //     return videoId
+                // });
+              
+            }
+        }
      
     }
 });
