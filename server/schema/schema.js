@@ -20,6 +20,7 @@ const SubStoryType = new GraphQLObjectType({
         title: { type: GraphQLString },
         description: { type: GraphQLString },
         url: { type: GraphQLString },
+        tags: {type: GraphQLString}
     })
 });
 
@@ -42,11 +43,19 @@ const StoryType = new GraphQLObjectType({
 const RootQuery = new GraphQLObjectType({
     name: 'RootQueryType',
     fields: {
-        Story: {                                        //Query to get Single Story by ID
-            type: StoryType,
-            args: { id: { type: GraphQLID } },
-            resolve(parent, args){
-                return Story.findById(args.id);
+        StorySearchFeed: {                                        //Query to get Single Story by ID
+            type: GraphQLList(StoryType),
+            args: { tag: { type: GraphQLString } },
+            resolve(parent, args, context , info){
+                let data = info.fieldNodes[0].selectionSet.selections;
+                let len = info.fieldNodes[0].selectionSet.selections.length;
+                let s = '';
+                for(let i = 0 ; i < len ; i++){         
+                    s = s + ' ' + data[i].name.value;
+                }
+                var query =  Story.find({tags: args.tag}).select(s);
+                return query;
+
             }
         },
       
@@ -114,3 +123,51 @@ module.exports = new GraphQLSchema({
     query: RootQuery,
     mutation: Mutation
 });
+
+
+/*
+Query to get data.
+{
+  Stories{
+    id,
+    title,
+    description,
+    tags,
+    subStory{
+    id,
+    order,
+      title,
+      description,
+      url,
+      tags
+    }
+  }
+}
+*/
+
+/*
+Query to mutate.
+mutation{
+  addStory(title : "Shimla Trip" ,
+    description : "Sampe description",
+    tags: "Shimla",
+    subStory:[{
+      order: 0,
+      title: "Shimla Story",
+      description: "Sample Description",
+      url: "https://images.unsplash.com/photo-1561296275-ed0cadb83832?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjc2Mzg2fQ"
+      tags: "Shimla"
+    },
+    {
+       order: 1,
+      title: "Shimla Story",
+      description: "Sample Description",
+      url: "https://images.unsplash.com/photo-1561296275-ed0cadb83832?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjc2Mzg2fQ"
+      tags: "Shimla"
+    },
+    ]
+  ){
+    title
+  }
+}
+*/
