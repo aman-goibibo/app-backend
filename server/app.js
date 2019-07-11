@@ -1,15 +1,8 @@
 const express = require('express');
 const graphqlHTTP = require('express-graphql');
 const schema = require('./schema/schema');
-const mongoose = require('mongoose');
 const app = express();
-
-// Mongoose Setup
-mongoose.set('debug', true);
-mongoose.connect('mongodb://localhost:27017/imagedb' , {useNewUrlParser : true} , (err) => {
-    if(!err) {console.log("MongoDb Connected")}
-    else {console.log(err)}
-})
+const db = require('./db/db')
 
 // Binding Express with GraphQL
 app.use('/graphql', graphqlHTTP({
@@ -21,3 +14,4 @@ app.use('/graphql', graphqlHTTP({
 app.listen(2000, () => {
     console.log('now listening for requests on port 2000');
 });
+

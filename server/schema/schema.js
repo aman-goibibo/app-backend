@@ -1,5 +1,5 @@
 const graphql = require('graphql');
-const Story  = require('../models/story');
+const Story = require('../models/story');
 const fetch = require('node-fetch')
 
 const {
@@ -12,17 +12,17 @@ const {
     GraphQLInputObjectType
 } = graphql;
 
-let links = [];
+var links = [];
 //Schema
 const SubStoryType = new GraphQLObjectType({
     name: "SubStory",
-    fields:({
+    fields: ({
         id: { type: GraphQLID },
         order: { type: GraphQLInt },
         title: { type: GraphQLString },
         description: { type: GraphQLString },
         url: { type: GraphQLString },
-        tags: {type: GraphQLString}
+        tags: { type: GraphQLString }
     })
 });
 
@@ -33,41 +33,32 @@ const StoryType = new GraphQLObjectType({
         id: { type: GraphQLID },
         title: { type: GraphQLString },
         description: { type: GraphQLString },
-        tags: {type: GraphQLString},
+        tags: { type: GraphQLString },
         subStory: {
-         type: GraphQLList(SubStoryType)
+            type: GraphQLList(SubStoryType)
         }
     }
 });
 
-const id = new GraphQLObjectType({
-    name : "id",
-    fields: ({
-        videoId : {type : GraphQLString}
-    })
-})
-
-const ItemsType = new GraphQLObjectType({
-    name : "Items",
-    fields : ({
-        id : { type: (id)}
-    })
-})
-
-const YouTubeType = new GraphQLObjectType({
-    name : "YouTube",
-    fields: ({
-        items: {type: GraphQLList(ItemsType)}
-    })
-})
-
 const YouTubeType2 = new GraphQLObjectType({
-    name : "haa",
-    fields: ({
-        url : {type : GraphQLString}
+    name: "haa",
+    fields: () => ({
+        url: { type: GraphQLString }
     })
 })
 
+const NewsType = new GraphQLObjectType({
+    name: "News",
+    fields: () => ({
+        author: { type: GraphQLString },
+        source: {type : GraphQLString},
+        title: {type : GraphQLString},
+        description: {type : GraphQLString},
+        url: {type : GraphQLString},
+        urltoImage : {type : GraphQLString},
+        content : {type : GraphQLString}
+    })
+})
 
 
 
@@ -75,54 +66,92 @@ const YouTubeType2 = new GraphQLObjectType({
 const RootQuery = new GraphQLObjectType({
     name: 'RootQueryType',
     fields: {
-        StorySearchFeed: {                                        //Query to get Single Story by ID
+        StoryFeed: {                          //Query to get Single Story by ID
             type: GraphQLList(StoryType),
-            args: { tag: { type: GraphQLString } },
-            resolve(parent, args, context , info){
+            args: { tag: { type: GraphQLString } , limit: { type: GraphQLInt }, offset: { type: GraphQLInt }},
+            resolve(parent, args, context, info) {
                 let data = info.fieldNodes[0].selectionSet.selections;
                 let len = info.fieldNodes[0].selectionSet.selections.length;
                 let s = '';
-                for(let i = 0 ; i < len ; i++){         
+                for (let i = 0; i < len; i++) {
                     s = s + ' ' + data[i].name.value;
                 }
-                var query =  Story.find({tags: args.tag}).select(s);
+                args.tag.toLowerCase();
+                var query = Story.find({ tags: args.tag }).limit(args.limit).skip(args.offset).select(s);
                 return query;
 
             }
         },
-      
-        Stories: {                                      // Query to get all Stories 
+
+        allStories: {                                 // Query to get all Stories 
             type: GraphQLList(StoryType),
-            resolve(parent, args , context , info){
-               
+            args: { limit: { type: GraphQLInt }, offset: { type: GraphQLInt } },
+            resolve(parent,args,info) {
+
                 let data = info.fieldNodes[0].selectionSet.selections;
                 let len = info.fieldNodes[0].selectionSet.selections.length;
                 let s = '';
-                for(let i = 0 ; i < len ; i++){         
+                for (let i = 0; i < len; i++) {
                     s = s + ' ' + data[i].name.value;
                 }
-                var query = Story.find().select(s)
-                 return query
+                var query = Story.find().limit(args.limit).skip(args.offset).select(s)
+                return query
             }
         },
 
-        YouTubeFeed: {
-            type : YouTubeType2,
-            resolve(parent,args,context,info){
-               return fetch('https://www.googleapis.com/youtube/v3/search?part=id&maxResults=5&q=lfc&fields=items(id%2FvideoId)&key={API_KEY}&q=nodejs').then(res => res.json())
-                .then(json => {
-                    let videoId = json.items[0].id.videoId;
-                    console.log(videoId);
-                    let link = "https://www.youtube.com/embed/" + videoId;
-                    console.log(link);
-                    links.push(link);
-                    console.log(links[0])
-                    return links;
-                });
-              
+        VideoFeed: {
+            type: GraphQLList(YouTubeType2),
+            args: { query: { type: GraphQLString } , limit : { type: GraphQLInt }},
+            async resolve(parent, args) {
+                let q = args.query;
+                let maxResults = args.limit;
+                links.length = 0;
+                let words = new Array();
+                words = q.split(" ");
+                let str = '';
+                for (var i = 0; i < words.length; i++) {
+                    console.log("inside")
+                    str += "%20";
+                    str += words[i]
+                }
+                let API_KEY = 'AIzaSyAkxQ0Rx7JjjfM7XiMnLViJHl9HFEqXUf8'
+                let hit_url = 'https://www.googleapis.com/youtube/v3/search?part=id&maxResults='+maxResults+'&fields=items(id%2FvideoId)&key=' + API_KEY + '&q=' + str;
+                await fetch(hit_url).then(res => res.json())
+                    .then(json => {
+                        for (var i = 0; i < json.items.length; i++) {
+                            let videoId = json.items[i].id.videoId
+                            let link = "https://www.youtube.com/embed/" + videoId;
+                            let obj = {
+                                url: link
+                            }
+                            links.push(obj);
+                        }
+                    });
+                return links;
             }
-        }
-     
+        },
+
+        SubStorySearch: {
+            type: GraphQLList(SubStoryType),
+            args: { limit: { type: GraphQLInt }, offset: { type: GraphQLInt } },
+            resolve(parent, args) {
+                var query = Story.find().select('SubStory')
+                return query;
+            }
+        },
+
+        NewsFeed: {
+            type: GraphQLList(NewsType),
+            args: { query: { type: GraphQLString } },
+            async resolve(parent, args) {
+                let q = args.query;
+                return fetch('https://newsapi.org/v2/everything?from=2019-06-11&sortBy=publishedAt&apiKey=58700e97a495469996792adb1f746fa3&q=' + q).then(res => res.json())
+                    .then(json => {
+                        return json.articles;
+                    });
+            }
+        },
+
     }
 });
 
@@ -131,15 +160,15 @@ const RootQuery = new GraphQLObjectType({
 const createUserInputType = new GraphQLInputObjectType({
     name: 'CreateUserInput',
     fields: () => ({
-        ssid: {type: GraphQLString},
-        order: {type: GraphQLInt},
-        title: {type : GraphQLString},
-        description: {type : GraphQLString},
-        url: {type: GraphQLString},
-        tags: {type: GraphQLString},
+        ssid: { type: GraphQLString },
+        order: { type: GraphQLInt },
+        title: { type: GraphQLString },
+        description: { type: GraphQLString },
+        url: { type: GraphQLString },
+        tags: { type: GraphQLString },
     }),
-  });
-  
+});
+
 
 // Mutation to add Story in DB.
 const Mutation = new GraphQLObjectType({
@@ -152,20 +181,30 @@ const Mutation = new GraphQLObjectType({
                 title: { type: GraphQLString },
                 description: { type: GraphQLString },
                 tags: { type: GraphQLString },
-                subStory:{
+                subStory: {
                     type: GraphQLList(createUserInputType),
                 }
-                
+
             },
-            resolve(parent, args , context , info){
+            resolve(parent, args, context, info) {
+                //Convert all data to lower Case to store in DB.
+                args.title.toLowerCase();
+                args.description.toLowerCase();
+                args.tags.toLowerCase();
+                for (var i = 0; i < args.subStory.length; i++) {
+                    args.subStory[i].title.toLowerCase();
+                    args.subStory[i].description.toLowerCase();
+                    args.subStory[i].tags.toLowerCase();
+                }
                 var story = new Story(args);
                 return story.save();
+           
             }
         }
-  
+
     }
 });
- 
+
 
 // Export Resolvers
 module.exports = new GraphQLSchema({
