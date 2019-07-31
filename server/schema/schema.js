@@ -1,6 +1,8 @@
 const graphql = require('graphql');
 const Story = require('../models/story');
 const fetch = require('node-fetch')
+const { URL, URLSearchParams } = require('url');
+
 
 const {
     GraphQLObjectType,
@@ -41,9 +43,11 @@ const StoryType = new GraphQLObjectType({
 });
 
 const YouTubeType2 = new GraphQLObjectType({
-    name: "haa",
+    name: "YouTube",
     fields: () => ({
-        url: { type: GraphQLString }
+        url: { type: GraphQLString },
+        videoId: { type: GraphQLString },
+        title: { type: GraphQLString }
     })
 })
 
@@ -51,12 +55,12 @@ const NewsType = new GraphQLObjectType({
     name: "News",
     fields: () => ({
         author: { type: GraphQLString },
-        source: {type : GraphQLString},
-        title: {type : GraphQLString},
-        description: {type : GraphQLString},
-        url: {type : GraphQLString},
-        urltoImage : {type : GraphQLString},
-        content : {type : GraphQLString}
+        source: { type: GraphQLString },
+        title: { type: GraphQLString },
+        description: { type: GraphQLString },
+        url: { type: GraphQLString },
+        urlToImage: { type: GraphQLString },
+        content: { type: GraphQLString }
     })
 })
 
@@ -68,7 +72,7 @@ const RootQuery = new GraphQLObjectType({
     fields: {
         StoryFeed: {                          //Query to get Single Story by ID
             type: GraphQLList(StoryType),
-            args: { tag: { type: GraphQLString } , limit: { type: GraphQLInt }, offset: { type: GraphQLInt }},
+            args: { tag: { type: GraphQLString }, limit: { type: GraphQLInt }, offset: { type: GraphQLInt } },
             resolve(parent, args, context, info) {
                 let data = info.fieldNodes[0].selectionSet.selections;
                 let len = info.fieldNodes[0].selectionSet.selections.length;
@@ -76,7 +80,6 @@ const RootQuery = new GraphQLObjectType({
                 for (let i = 0; i < len; i++) {
                     s = s + ' ' + data[i].name.value;
                 }
-                args.tag.toLowerCase();
                 var query = Story.find({ tags: args.tag }).limit(args.limit).skip(args.offset).select(s);
                 return query;
 
@@ -86,8 +89,7 @@ const RootQuery = new GraphQLObjectType({
         allStories: {                                 // Query to get all Stories 
             type: GraphQLList(StoryType),
             args: { limit: { type: GraphQLInt }, offset: { type: GraphQLInt } },
-            resolve(parent,args,info) {
-
+            resolve(parent, args, { }, info) {
                 let data = info.fieldNodes[0].selectionSet.selections;
                 let len = info.fieldNodes[0].selectionSet.selections.length;
                 let s = '';
@@ -101,28 +103,39 @@ const RootQuery = new GraphQLObjectType({
 
         VideoFeed: {
             type: GraphQLList(YouTubeType2),
-            args: { query: { type: GraphQLString } , limit : { type: GraphQLInt }},
+            args: { query: { type: GraphQLString }, limit: { type: GraphQLInt } },
             async resolve(parent, args) {
                 let q = args.query;
                 let maxResults = args.limit;
-                links.length = 0;
-                let words = new Array();
-                words = q.split(" ");
-                let str = '';
-                for (var i = 0; i < words.length; i++) {
-                    console.log("inside")
-                    str += "%20";
-                    str += words[i]
-                }
-                let API_KEY = 'AIzaSyAkxQ0Rx7JjjfM7XiMnLViJHl9HFEqXUf8'
-                let hit_url = 'https://www.googleapis.com/youtube/v3/search?part=id&maxResults='+maxResults+'&fields=items(id%2FvideoId)&key=' + API_KEY + '&q=' + str;
+                // links.length = 0;
+                // let words = new Array();
+                // words = q.split(" ");
+                // let str = '';
+                // for (var i = 0; i < words.length; i++) {
+                //     str += words[i]
+                // }
+                // let API_KEY = 'AIzaSyC1pasDoHQX5brwOEZUTs6DoSxF2zRl2vk'
+                //  let hit_url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=' + maxResults + '&fields=items(id%2FvideoId%2Csnippet%2Ftitle)&key=' + API_KEY + '&q=' + str;
+                //  let hit_url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&fields=items(id%2FvideoId%2Csnippet%2Ftitle)&key=AIzaSyBTde1eKMDwXCRPD8juOhSYzvcfk2U5Xg4'
+                let hit_url = new URL('https://www.googleapis.com/youtube/v3/search')
+                var params = { q, maxResults , part : 'snippet' , key : 'AIzaSyC1pasDoHQX5brwOEZUTs6DoSxF2zRl2vk' , fields : 'items(id/videoId,snippet/title)' };
+                hit_url.search = new URLSearchParams(params)
+                console.log(hit_url)
+                // var res = encodeURI(hit_url);
+                console.log(hit_url)
+
                 await fetch(hit_url).then(res => res.json())
                     .then(json => {
-                        for (var i = 0; i < json.items.length; i++) {
+                        links=[]
+                        // console.log(json.items[0].snippet)
+                        for (var i = 0; i < maxResults; i++) {
                             let videoId = json.items[i].id.videoId
+                            let title = json.items[i].snippet.title
                             let link = "https://www.youtube.com/embed/" + videoId;
                             let obj = {
-                                url: link
+                                url: link,
+                                videoId,
+                                title
                             }
                             links.push(obj);
                         }
@@ -142,10 +155,12 @@ const RootQuery = new GraphQLObjectType({
 
         NewsFeed: {
             type: GraphQLList(NewsType),
-            args: { query: { type: GraphQLString } },
+            args: { query: { type: GraphQLString }, limit: { type: GraphQLInt } },
             async resolve(parent, args) {
                 let q = args.query;
-                return fetch('https://newsapi.org/v2/everything?from=2019-06-11&sortBy=publishedAt&apiKey=58700e97a495469996792adb1f746fa3&q=' + q).then(res => res.json())
+                console.log(q)
+                let size = args.limit;
+                return fetch('https://newsapi.org/v2/everything?from=2019-06-31&sortBy=publishedAt&apiKey=58700e97a495469996792adb1f746fa3&q=' + q + '&pageSize=' + size).then(res => res.json())
                     .then(json => {
                         return json.articles;
                     });
@@ -188,17 +203,17 @@ const Mutation = new GraphQLObjectType({
             },
             resolve(parent, args, context, info) {
                 //Convert all data to lower Case to store in DB.
-                args.title.toLowerCase();
-                args.description.toLowerCase();
-                args.tags.toLowerCase();
-                for (var i = 0; i < args.subStory.length; i++) {
-                    args.subStory[i].title.toLowerCase();
-                    args.subStory[i].description.toLowerCase();
-                    args.subStory[i].tags.toLowerCase();
-                }
+                // args.title.toLowerCase();
+                // args.description.toLowerCase();
+                // args.tags.toLowerCase();
+                // for (var i = 0; i < args.subStory.length; i++) {
+                //     args.subStory[i].title.toLowerCase();
+                //     args.subStory[i].description.toLowerCase();
+                //     args.subStory[i].tags.toLowerCase();
+                // }
                 var story = new Story(args);
                 return story.save();
-           
+
             }
         }
 
